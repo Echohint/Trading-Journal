@@ -3,666 +3,489 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DevTrader Trading Journal</title>
+    <title>DevTrader Pro: AI Terminal</title>
     
-    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Google Fonts: Orbitron -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     
-    <!-- React & Babel for running the component -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Three.js for 3D graphics -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
-        /* Apply the Orbitron font family */
-        body {
-            font-family: 'Orbitron', sans-serif;
-            overscroll-behavior-y: none;
-            cursor: default;
-        }
-        /* Style for number input arrows */
+        body { font-family: 'Rajdhani', sans-serif; overscroll-behavior-y: none; }
+        h1, h2, h3, .orbitron { font-family: 'Orbitron', sans-serif; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #06b6d4; border-radius: 4px; }
+        
         input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-          -webkit-appearance: none; 
-          margin: 0; 
-        }
-        input[type=number] {
-          -moz-appearance: textfield;
-        }
-        /* Ensure canvas is behind everything */
-        #bg-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-        }
-        /* Required for 3D transform effects on child elements */
-        .perspective-container {
-            perspective: 1500px;
-        }
-        .transform-style-3d {
-            transform-style: preserve-3d;
-        }
-        /* Animation for today's highlight */
-        @keyframes pulse-glow-cyber {
-            0%, 100% { box-shadow: 0 0 10px 3px rgba(234, 179, 8, 0.8), inset 0 0 5px 1px rgba(234, 179, 8, 0.5); }
-            50% { box-shadow: 0 0 20px 6px rgba(234, 179, 8, 0.5), inset 0 0 10px 2px rgba(234, 179, 8, 0.3); }
-        }
-        .today-highlight {
-            animation: pulse-glow-cyber 2.5s infinite;
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
         }
         
-        .day-container {
-             cursor: grab;
-        }
-        /* Class applied during drag-to-rotate interaction */
-        .is-dragging {
-            animation: none !important;
-            cursor: grabbing;
-        }
-        /* Scanlines overlay for cyberpunk feel */
-        .scanlines::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 1;
-            background-size: 100% 3px, 4px 100%;
-            pointer-events: none;
-            animation: flicker 0.15s infinite;
-            opacity: 0.5;
-        }
-        .dark .scanlines::before {
-             opacity: 1;
-        }
-        @keyframes flicker {
-            0% { opacity: 0.8; }
-            50% { opacity: 0.9; }
-            100% { opacity: 0.8; }
-        }
+        .neon-text { text-shadow: 0 0 5px rgba(6, 182, 212, 0.8); }
+        .neon-border { box-shadow: 0 0 10px rgba(6, 182, 212, 0.4); }
+        
+        /* AI Typing Animation */
+        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        .markdown-body p { margin-bottom: 0.5em; }
+        .markdown-body ul { list-style-type: disc; margin-left: 1.5em; }
     </style>
     <script>
-        // Tailwind dark mode configuration
-        tailwind.config = {
-            darkMode: 'class',
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
 </head>
-<body class="bg-gray-100 dark:bg-black">
+<body class="bg-gray-900 text-gray-100 overflow-x-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo, useRef } = React;
-        
-        // --- Constants and Configuration ---
-        const DEFAULT_INITIAL_CAPITAL = 50000;
-        const DEFAULT_FINAL_TARGET = 1000000;
-        const DEFAULT_TENURE_DAYS = 66; 
-        const TRADING_DAYS_PER_MONTH = 22;
 
-        const DEFAULT_RULES = [
-            { text: "MAINTAIN DISCIPLINE: ADHERE TO THE PLAN", checked: false },
-            { text: "VALIDATE STRATEGY: CONFIRM ENTRY/EXIT CRITERIA", checked: false },
-            { text: "ASSESS MACRO TREND: CONSULT HIGHER TIMEFRAMES", checked: false },
-            { text: "RISK PROTOCOL: MAX 2% CAPITAL PER ENGAGEMENT", checked: false },
-            { text: "PROTECT CAPITAL: NEVER SHIFT STOP-LOSS MID-TRADE", checked: false },
-            { text: "DEFINE LOSS LIMITS: SET DAILY DRAWDOWN THRESHOLD", checked: false },
-            { text: "AVOID EMOTIONAL TRADING: NO REVENGE/OVER-TRADING", checked: false },
-            { text: "MAINTAIN OBJECTIVITY: LOGIC OVER FEAR/GREED", checked: false },
-            { text: "POST-TRADE ANALYSIS: LOG & REVIEW ALL EXECUTIONS", checked: false },
-            { text: "OPERATOR STATUS: CONFIRM PEAK MENTAL & PHYSICAL STATE", checked: false },
-        ];
-        
+        // --- Constants ---
+        const DEFAULT_INITIAL_CAPITAL = 100000;
+        const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+
         // --- Helper Functions ---
-        const getNextTradingDay = (date) => {
-            const nextDay = new Date(date);
-            nextDay.setDate(nextDay.getDate() + 1);
-            while (nextDay.getDay() === 0 || nextDay.getDay() === 6) { 
-                nextDay.setDate(nextDay.getDate() + 1);
-            }
-            return nextDay;
-        };
-        
-        const getTodayDateString = () => {
-            const today = new Date();
-            return today.toISOString().split('T')[0];
-        }
+        const formatCurrency = (num) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
+        const generateId = () => Math.random().toString(36).substr(2, 9);
+        const getToday = () => new Date().toISOString().split('T')[0];
 
-        const formatNumber = (num) => {
-            const number = Number(num);
-            if (isNaN(number)) return '0';
-            if (Math.abs(number) >= 10000000) {
-                return (number / 10000000).toFixed(2).replace(/\.00$/, '') + ' CR';
-            }
-            if (Math.abs(number) >= 100000) {
-                return (number / 100000).toFixed(2).replace(/\.00$/, '') + ' L';
-            }
-            if (Math.abs(number) >= 1000) {
-                return (number / 1000).toFixed(2).replace(/\.00$/, '') + ' K';
-            }
-            return number.toLocaleString('en-IN');
-        };
+        // --- Components ---
 
-        // --- 3D Background Component ---
-        const DynamicBackground = ({ theme }) => {
+        // 1. Background
+        const DynamicBackground = () => {
             const mountRef = useRef(null);
-
             useEffect(() => {
-                const currentMount = mountRef.current;
+                if(!mountRef.current) return;
                 const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, currentMount.clientWidth / currentMount.clientHeight, 0.1, 1000);
-                camera.position.z = 25;
-                camera.position.y = 5;
-                
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
                 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-                renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
-                currentMount.appendChild(renderer.domElement);
-
-                // Theme-dependent setup
-                const isDark = theme === 'dark';
-                scene.fog = isDark ? new THREE.FogExp2(0x000000, 0.015) : new THREE.FogExp2(0xaaaaaa, 0.01);
-                const ambientLight = new THREE.AmbientLight(0xffffff, isDark ? 0.1 : 0.5);
-                scene.add(ambientLight);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                mountRef.current.appendChild(renderer.domElement);
                 
-                const magentaLight = new THREE.PointLight(0xff00ff, isDark ? 1 : 0.5, 100);
-                magentaLight.position.set(-20, 10, 0);
-                scene.add(magentaLight);
-
-                const cyanLight = new THREE.PointLight(0x00ffff, isDark ? 1 : 0.5, 100);
-                cyanLight.position.set(20, 10, 0);
-                scene.add(cyanLight);
-
-                const gridHelper = new THREE.GridHelper(200, 50, isDark ? 0x00ffff : 0x555555, isDark ? 0x555555 : 0xcccccc);
-                gridHelper.material.transparent = true;
-                gridHelper.material.opacity = isDark ? 0.5 : 0.25;
-                scene.add(gridHelper);
-                
-                const dataTowers = [];
-                const towerGroup = new THREE.Group();
-                for (let i = 0; i < 70; i++) {
-                    const isCyan = Math.random() > 0.5;
-                    const material = new THREE.MeshStandardMaterial({ 
-                        color: isCyan ? 0x00ffff : 0xff00ff, 
-                        emissive: isDark ? (isCyan ? 0x00ffff : 0xff00ff) : 0x000000,
-                        emissiveIntensity: isDark ? 0.5 : 0,
-                        metalness: 0.8,
-                        roughness: 0.4
-                    });
-                    const geometry = new THREE.BoxGeometry(0.8, Math.random() * 15 + 2, 0.8);
-                    const tower = new THREE.Mesh(geometry, material);
-                    tower.position.x = (Math.random() - 0.5) * 180;
-                    tower.position.z = (Math.random() - 0.5) * 180;
-                    tower.scale.y = Math.random();
-                    towerGroup.add(tower);
-                    dataTowers.push(tower);
-                }
-                scene.add(towerGroup);
-
-                const particlesGeometry = new THREE.BufferGeometry();
-                const particlesCnt = 8000;
-                const posArray = new Float32Array(particlesCnt * 3);
-                for (let i = 0; i < particlesCnt * 3; i++) posArray[i] = (Math.random() - 0.5) * 200;
-                particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-                const particlesMaterial = new THREE.PointsMaterial({ 
-                    size: 0.1, 
-                    color: isDark ? 0x00ff00 : 0x333333,
-                    transparent: true, opacity: 0.7
-                });
-                const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+                const geometry = new THREE.BufferGeometry();
+                const count = 2000;
+                const posArray = new Float32Array(count * 3);
+                for(let i=0; i<count*3; i++) posArray[i] = (Math.random() - 0.5) * 50;
+                geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                const material = new THREE.PointsMaterial({ size: 0.05, color: 0x06b6d4, transparent: true, opacity: 0.8 });
+                const particles = new THREE.Points(geometry, material);
                 scene.add(particles);
+                camera.position.z = 5;
 
-                // Rotating Icosahedrons
-                const geo = new THREE.IcosahedronGeometry(2, 0);
-                const mat = new THREE.MeshStandardMaterial({color: 0xffffff, roughness: 0, metalness: 0.5, wireframe: true});
-                const wireframe1 = new THREE.Mesh(geo, mat);
-                wireframe1.position.set(-20, 10, -20);
-                scene.add(wireframe1);
-                 const wireframe2 = new THREE.Mesh(geo, mat);
-                wireframe2.position.set(20, 10, -20);
-                scene.add(wireframe2);
-
-                const clock = new THREE.Clock();
                 const animate = () => {
-                    const elapsedTime = clock.getElapsedTime();
-                    dataTowers.forEach(c => c.scale.y = (Math.sin(elapsedTime * 0.8 + c.position.x) + 1) / 2 * 0.9 + 0.1);
-                    particles.position.y = (elapsedTime * -5) % 100;
-                    
-                    camera.position.x = Math.sin(elapsedTime * 0.1) * 10;
-                    camera.position.y = 5 + Math.cos(elapsedTime * 0.15) * 4;
-                    camera.lookAt(scene.position);
-                    
-                    wireframe1.rotation.y += 0.005;
-                    wireframe1.rotation.x += 0.005;
-                    wireframe2.rotation.y -= 0.005;
-                    wireframe2.rotation.x -= 0.005;
-
-
+                    particles.rotation.y += 0.001;
+                    particles.rotation.x += 0.0005;
                     renderer.render(scene, camera);
                     requestAnimationFrame(animate);
                 };
                 animate();
 
                 const handleResize = () => {
-                    camera.aspect = currentMount.clientWidth / currentMount.clientHeight;
+                    camera.aspect = window.innerWidth / window.innerHeight;
                     camera.updateProjectionMatrix();
-                    renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
+                    renderer.setSize(window.innerWidth, window.innerHeight);
                 };
                 window.addEventListener('resize', handleResize);
                 return () => {
                     window.removeEventListener('resize', handleResize);
-                    currentMount.removeChild(renderer.domElement);
-                };
-            }, [theme]);
+                    if(mountRef.current) mountRef.current.innerHTML = '';
+                }
+            }, []);
             return <div ref={mountRef} id="bg-canvas" />;
         };
 
-        // --- Main React App Component ---
-        function App() {
-            const [data, setData] = useState(null);
-            const [activeMonthIndex, setActiveMonthIndex] = useState(0);
-            const [todayString, setTodayString] = useState(getTodayDateString());
-            const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
-
-            const [inputCapital, setInputCapital] = useState(DEFAULT_INITIAL_CAPITAL.toString());
-            const [inputTarget, setInputTarget] = useState(DEFAULT_FINAL_TARGET.toString());
-            const [inputTenure, setInputTenure] = useState(DEFAULT_TENURE_DAYS.toString());
-
-            const dragInfo = useRef(null);
-
-            const generatePlanStructure = useCallback((tenure, oldMonths = []) => {
-                const oldDaysMap = new Map();
-                oldMonths.forEach(month => month.days.forEach(day => oldDaysMap.set(day.date, day)));
-
-                let months = [];
-                let currentDate = new Date();
-                let dayCounter = 0;
-
-                while (dayCounter < tenure) {
-                    const monthIndex = Math.floor(dayCounter / TRADING_DAYS_PER_MONTH);
-                    if (!months[monthIndex]) {
-                        months[monthIndex] = {
-                            id: monthIndex + 1,
-                            monthName: currentDate.toLocaleString('default', { month: 'long', year: 'numeric' }),
-                            days: []
-                        };
-                    }
-                    
-                    const dateStr = currentDate.toISOString().split('T')[0];
-                    const existingDayData = oldDaysMap.get(dateStr);
-
-                    months[monthIndex].days.push({
-                        day: dayCounter + 1,
-                        date: dateStr,
-                        capital: 0, target: 0, profit: 0, dailyRate: 0,
-                        achieved: existingDayData ? existingDayData.achieved : false,
-                        pnlSign: existingDayData ? existingDayData.pnlSign : "+",
-                        actual: existingDayData ? existingDayData.actual : "",
-                        winningTrades: existingDayData ? existingDayData.winningTrades : "",
-                        losingTrades: existingDayData ? existingDayData.losingTrades : "",
-                        logic: existingDayData ? existingDayData.logic : "",
-                        rules: existingDayData ? existingDayData.rules : JSON.parse(JSON.stringify(DEFAULT_RULES)),
+        // 2. TradingView Widget Component
+        const TradingViewChart = ({ symbol }) => {
+            const containerId = useRef(`tv_chart_${generateId()}`);
+            
+            useEffect(() => {
+                if (window.TradingView) {
+                    new window.TradingView.widget({
+                        "width": "100%",
+                        "height": "100%",
+                        "symbol": symbol || "NASDAQ:AAPL",
+                        "interval": "D",
+                        "timezone": "Etc/UTC",
+                        "theme": "dark",
+                        "style": "1",
+                        "locale": "en",
+                        "toolbar_bg": "#f1f3f6",
+                        "enable_publishing": false,
+                        "hide_side_toolbar": false,
+                        "allow_symbol_change": true,
+                        "container_id": containerId.current
                     });
-
-                    currentDate = getNextTradingDay(currentDate);
-                    dayCounter++;
                 }
-                return months;
-            }, []);
-            
-            const recalculatePlan = useCallback((fullData) => {
-                const { initialCapital, finalTarget, tenure } = fullData;
-                const newMonths = JSON.parse(JSON.stringify(fullData.months));
-                const allDays = newMonths.flatMap(m => m.days);
+            }, [symbol]);
 
-                const initialDailyRate = Math.pow(finalTarget / initialCapital, 1 / tenure) - 1;
-                let plannedCapital = initialCapital;
-                const plannedGoals = [];
-                for (let i = 0; i < tenure; i++) {
-                    const plannedTarget = plannedCapital * (1 + initialDailyRate);
-                    const plannedProfit = plannedTarget - plannedCapital;
-                    plannedGoals.push({ target: Math.round(plannedTarget), profit: Math.round(plannedProfit) });
-                    plannedCapital = plannedTarget;
+            return <div id={containerId.current} className="w-full h-full rounded-lg overflow-hidden border border-gray-700" />;
+        };
+
+        // 3. AI Assistant Component
+        const AIAssistant = ({ logs, trades, capital, apiKey, setApiKey }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const [input, setInput] = useState("");
+            const [messages, setMessages] = useState([{ role: "ai", content: "Greetings, Operator. I am connected to your trading journal. How can I assist your analysis today?" }]);
+            const [loading, setLoading] = useState(false);
+            const chatEndRef = useRef(null);
+
+            useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+            const analyzeData = async () => {
+                if (!apiKey) {
+                    setMessages(prev => [...prev, { role: "ai", content: "⚠️ API Key missing. Please click the key icon to configure your Google Gemini API key." }]);
+                    return;
                 }
+                setLoading(true);
+                const userMsg = { role: "user", content: input };
+                setMessages(prev => [...prev, userMsg]);
+                setInput("");
 
-                let actualCapital = initialCapital;
-                let totalDaysElapsed = 0;
+                // Prepare Context
+                const recentTrades = trades.slice(-5);
+                const pnl = trades.reduce((acc, t) => acc + t.pnl, 0);
+                const winRate = trades.length > 0 ? ((trades.filter(t => t.pnl > 0).length / trades.length) * 100).toFixed(1) : 0;
+                
+                const contextPrompt = `
+                    You are a professional trading coach AI. 
+                    Current Capital: ${formatCurrency(capital)}. 
+                    Total P&L: ${formatCurrency(pnl)}. 
+                    Win Rate: ${winRate}%.
+                    Recent Trades: ${JSON.stringify(recentTrades)}.
+                    User Query: ${input}
+                    Provide a concise, strategic analysis formatted in Markdown. Focus on risk management and psychology.
+                `;
 
-                for (let day of allDays) {
-                    day.target = plannedGoals[totalDaysElapsed].target;
-                    day.profit = plannedGoals[totalDaysElapsed].profit;
-                    day.capital = Math.round(actualCapital);
-                    
-                    if (actualCapital > 0 && day.target > actualCapital) {
-                        day.dailyRate = (day.target / actualCapital) - 1;
-                    } else {
-                        day.dailyRate = 0;
-                    }
-                    
-                    if (day.actual !== "") {
-                        const actualProfit = Number(day.actual) || 0;
-                        const signedProfit = day.pnlSign === '+' ? actualProfit : -actualProfit;
-                        actualCapital += signedProfit;
-                    } else {
-                        actualCapital = day.target;
-                    }
-                    totalDaysElapsed++;
-                }
-                return newMonths;
-            }, []);
-            
-            useEffect(() => {
                 try {
-                    const savedData = localStorage.getItem("tradingChallengeData");
-                    if (savedData) {
-                        const parsedData = JSON.parse(savedData);
-                        setData(parsedData);
-                        setInputCapital(parsedData.initialCapital.toString());
-                        setInputTarget(parsedData.finalTarget.toString());
-                        setInputTenure(parsedData.tenure.toString());
-                    } else {
-                        const initialTenure = DEFAULT_TENURE_DAYS;
-                        const months = generatePlanStructure(initialTenure);
-                        let initialData = { 
-                            initialCapital: DEFAULT_INITIAL_CAPITAL, 
-                            finalTarget: DEFAULT_FINAL_TARGET, 
-                            tenure: initialTenure,
-                            months: months 
-                        };
-                        initialData.months = recalculatePlan(initialData);
-                        setData(initialData);
-                        localStorage.setItem("tradingChallengeData", JSON.stringify(initialData));
+                    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: contextPrompt }] }] })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error.message || "API Error");
                     }
-                } catch (error) { console.error("Failed to initialize data:", error); }
-            }, [generatePlanStructure, recalculatePlan]);
 
-            useEffect(() => {
-                document.documentElement.classList.toggle("dark", theme === "dark");
-                localStorage.setItem("theme", theme);
-            }, [theme]);
+                    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error parsing response.";
+                    setMessages(prev => [...prev, { role: "ai", content: aiText }]);
+                } catch (err) {
+                    setMessages(prev => [...prev, { role: "ai", content: "Connection Error: " + err.message }]);
+                }
+                setLoading(false);
+            };
+
+            return (
+                <>
+                    {/* Toggle Button */}
+                    <button onClick={() => setIsOpen(!isOpen)} className="fixed bottom-6 right-6 z-50 bg-cyan-600 hover:bg-cyan-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.6)] transition-all hover:scale-110">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </button>
+
+                    {/* Main Panel */}
+                    {isOpen && (
+                        <div className="fixed bottom-24 right-6 w-96 h-[500px] glass-panel rounded-xl flex flex-col z-50 animate-fade-in-up">
+                            {/* Header */}
+                            <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/80 rounded-t-xl">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                    <h3 className="font-bold text-cyan-400">GEMINI ANALYST</h3>
+                                </div>
+                                <button onClick={() => { const k = prompt("Enter Gemini API Key:", apiKey); if(k) setApiKey(k); }} className="text-gray-400 hover:text-white" title="Set API Key">🔑</button>
+                            </div>
+
+                            {/* Chat Area */}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm">
+                                {messages.map((m, i) => (
+                                    <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[85%] p-3 rounded-lg ${m.role === 'user' ? 'bg-cyan-700 text-white' : 'bg-gray-800 text-gray-200 border border-gray-700'}`}>
+                                            {m.role === 'ai' ? <div className="markdown-body" dangerouslySetInnerHTML={{__html: marked.parse(m.content)}}></div> : m.content}
+                                        </div>
+                                    </div>
+                                ))}
+                                {loading && <div className="flex gap-1 p-2"><div className="w-2 h-2 bg-cyan-500 rounded-full typing-dot"></div><div className="w-2 h-2 bg-cyan-500 rounded-full typing-dot"></div><div className="w-2 h-2 bg-cyan-500 rounded-full typing-dot"></div></div>}
+                                <div ref={chatEndRef} />
+                            </div>
+
+                            {/* Input */}
+                            <div className="p-3 border-t border-gray-700 bg-gray-900/50 rounded-b-xl flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={input} 
+                                    onChange={(e) => setInput(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && analyzeData()}
+                                    placeholder="Ask for analysis..." 
+                                    className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-cyan-500 text-white"
+                                />
+                                <button onClick={analyzeData} className="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-white font-bold">→</button>
+                            </div>
+                        </div>
+                    )}
+                </>
+            );
+        };
+
+        // 4. Main Application
+        function App() {
+            // --- State ---
+            const [activeView, setActiveView] = useState("terminal"); // 'journal' or 'terminal'
+            const [capital, setCapital] = useState(() => parseFloat(localStorage.getItem("devtrader_capital")) || DEFAULT_INITIAL_CAPITAL);
+            const [trades, setTrades] = useState(() => JSON.parse(localStorage.getItem("devtrader_trades")) || []);
             
-            const handleUpdateTargets = () => {
-                const newInitialCapital = parseInt(inputCapital, 10) || DEFAULT_INITIAL_CAPITAL;
-                const newFinalTarget = parseInt(inputTarget, 10) || DEFAULT_FINAL_TARGET;
-                const newTenure = parseInt(inputTenure, 10) || DEFAULT_TENURE_DAYS;
-
-                setData(prevData => {
-                    const newMonths = generatePlanStructure(newTenure, prevData.months);
-                    const updatedData = {
-                        ...prevData,
-                        initialCapital: newInitialCapital,
-                        finalTarget: newFinalTarget,
-                        tenure: newTenure,
-                        months: newMonths,
-                    };
-                    updatedData.months = recalculatePlan(updatedData);
-                    localStorage.setItem("tradingChallengeData", JSON.stringify(updatedData));
-                    setActiveMonthIndex(0);
-                    return updatedData;
-                });
-            };
-
-            const handleProfitInput = (monthIndex, dayIndex, value) => {
-                setData(prevData => {
-                    const newData = JSON.parse(JSON.stringify(prevData));
-                    const day = newData.months[monthIndex].days[dayIndex];
-                    day.actual = value;
-                    const actualProfit = Number(value) || 0;
-                    const signedProfit = day.pnlSign === '+' ? actualProfit : -actualProfit;
-                    day.achieved = signedProfit >= day.profit;
-                    newData.months = recalculatePlan(newData);
-                    localStorage.setItem("tradingChallengeData", JSON.stringify(newData));
-                    return newData;
-                });
-            };
+            // UPDATED: API KEY HARDCODED HERE
+            const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem("devtrader_gemini_key") || "AIzaSyDcQXcWOBe3_FeDF6waV-mvIQjtszZyTtk");
             
-            const handleSignChange = (monthIndex, dayIndex, sign) => {
-                 setData(prevData => {
-                    const newData = JSON.parse(JSON.stringify(prevData));
-                    const day = newData.months[monthIndex].days[dayIndex];
-                    day.pnlSign = sign;
-                    const actualProfit = Number(day.actual) || 0;
-                    const signedProfit = sign === '+' ? actualProfit : -actualProfit;
-                    day.achieved = signedProfit >= day.profit;
-                    newData.months = recalculatePlan(newData);
-                    localStorage.setItem("tradingChallengeData", JSON.stringify(newData));
-                    return newData;
-                });
+            const [journalData, setJournalData] = useState(() => JSON.parse(localStorage.getItem("tradingChallengeData")) || null);
+
+            // Paper Trading State
+            const [symbol, setSymbol] = useState("BTCUSD");
+            const [orderType, setOrderType] = useState("BUY");
+            const [entryPrice, setEntryPrice] = useState("");
+            const [quantity, setQuantity] = useState(1);
+            const [openPositions, setOpenPositions] = useState(() => JSON.parse(localStorage.getItem("devtrader_positions")) || []);
+
+            // --- Effects ---
+            useEffect(() => { localStorage.setItem("devtrader_capital", capital); }, [capital]);
+            useEffect(() => { localStorage.setItem("devtrader_trades", JSON.stringify(trades)); }, [trades]);
+            useEffect(() => { localStorage.setItem("devtrader_positions", JSON.stringify(openPositions)); }, [openPositions]);
+            useEffect(() => { localStorage.setItem("devtrader_gemini_key", geminiKey); }, [geminiKey]);
+
+            // --- Actions ---
+            const executeTrade = () => {
+                if (!entryPrice || !quantity) return alert("Enter Price and Quantity");
+                const newPosition = {
+                    id: generateId(),
+                    symbol: symbol.toUpperCase(),
+                    type: orderType,
+                    entryPrice: parseFloat(entryPrice),
+                    quantity: parseFloat(quantity),
+                    timestamp: new Date().toISOString()
+                };
+                setOpenPositions([newPosition, ...openPositions]);
+                setEntryPrice(""); // Reset input
             };
 
-            const handleDetailsChange = (monthIndex, dayIndex, field, value) => {
-                 setData(prevData => {
-                    const newData = JSON.parse(JSON.stringify(prevData));
-                    newData.months[monthIndex].days[dayIndex][field] = value;
-                    localStorage.setItem("tradingChallengeData", JSON.stringify(newData));
-                    return newData;
-                });
+            const closePosition = (id, exitPrice) => {
+                if (!exitPrice) return alert("Enter Exit Price");
+                const pos = openPositions.find(p => p.id === id);
+                const exit = parseFloat(exitPrice);
+                
+                // Calculate PnL
+                let pnl = 0;
+                if (pos.type === "BUY") pnl = (exit - pos.entryPrice) * pos.quantity;
+                else pnl = (pos.entryPrice - exit) * pos.quantity;
+
+                const closedTrade = {
+                    ...pos,
+                    exitPrice: exit,
+                    exitTime: new Date().toISOString(),
+                    pnl: pnl,
+                    status: pnl > 0 ? "WIN" : "LOSS"
+                };
+
+                setTrades([closedTrade, ...trades]);
+                setCapital(prev => prev + pnl);
+                setOpenPositions(openPositions.filter(p => p.id !== id));
             };
 
-            const handleRuleChange = (monthIndex, dayIndex, ruleIndex, isChecked) => {
-                setData(prevData => {
-                    const newData = JSON.parse(JSON.stringify(prevData));
-                    newData.months[monthIndex].days[dayIndex].rules[ruleIndex].checked = isChecked;
-                    localStorage.setItem("tradingChallengeData", JSON.stringify(newData));
-                    return newData;
-                });
-            };
-            
-            const handleResetChallenge = () => {
-                if (confirm("::: CRITICAL WARNING :::\nResetting the entire challenge will purge all archived data and reset goals to default. Proceed with caution.")) {
-                    localStorage.removeItem("tradingChallengeData");
+            const resetData = () => {
+                if(confirm("Reset ALL data?")) {
+                    localStorage.clear();
                     window.location.reload();
                 }
             };
 
-            const toggleTheme = () => setTheme(prev => prev === "dark" ? "light" : "dark");
-            
-            // --- Drag-to-Rotate Handlers ---
-            const handleMouseMove = useCallback((e) => {
-                if (!dragInfo.current) return;
-                const { element, startX, startY } = dragInfo.current;
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
-                element.style.transform = `rotateX(${-deltaY * 0.2}deg) rotateY(${deltaX * 0.2}deg) scale3d(1.05, 1.05, 1.05)`;
-            }, []);
-
-            const handleMouseUp = useCallback(() => {
-                if (!dragInfo.current) return;
-                dragInfo.current.element.classList.remove('is-dragging');
-                dragInfo.current.element.style.transform = ''; 
-                window.removeEventListener('mousemove', handleMouseMove);
-                window.removeEventListener('mouseup', handleMouseUp);
-                dragInfo.current = null;
-            }, [handleMouseMove]);
-
-            const handleMouseDown = useCallback((e) => {
-                if (e.button !== 0 || ['INPUT', 'TEXTAREA', 'LABEL', 'BUTTON'].includes(e.target.tagName) || e.target.closest('label')) return;
-                const element = e.currentTarget;
-                element.classList.add('is-dragging');
-                dragInfo.current = { element, startX: e.clientX, startY: e.clientY };
-                window.addEventListener('mousemove', handleMouseMove);
-                window.addEventListener('mouseup', handleMouseUp);
-            }, [handleMouseMove, handleMouseUp]);
-
-            const analysis = useMemo(() => {
-                if (!data || !data.months[activeMonthIndex]) return { pnl: 0, profitDays: 0, lossDays: 0, winningTrades: 0, losingTrades: 0 };
-                const month = data.months[activeMonthIndex];
-                const completedDays = month.days.filter(d => d.actual !== "");
-                const pnl = completedDays.reduce((acc, day) => {
-                    const value = Number(day.actual) || 0;
-                    return acc + (day.pnlSign === '+' ? value : -value);
-                }, 0);
-                const profitDays = completedDays.filter(d => (d.pnlSign === '+' && d.actual !== '0') || (d.pnlSign === '-' && Number(d.actual) < 0)).length;
-                const lossDays = completedDays.filter(d => (d.pnlSign === '-' && d.actual !== '0') || (d.pnlSign === '+' && Number(d.actual) < 0)).length;
-                const winningTrades = completedDays.reduce((acc, day) => acc + (Number(day.winningTrades) || 0), 0);
-                const losingTrades = completedDays.reduce((acc, day) => acc + (Number(day.losingTrades) || 0), 0);
-                return { pnl, profitDays, lossDays, winningTrades, losingTrades };
-            }, [data, activeMonthIndex]);
-
-            const startCapitalForMonth = useMemo(() => {
-                if (!data || activeMonthIndex === 0) return data ? data.initialCapital : 0;
-                const allDays = data.months.flatMap(m => m.days);
-                const firstDayOfMonthIndex = activeMonthIndex * TRADING_DAYS_PER_MONTH;
-                return allDays[firstDayOfMonthIndex] ? allDays[firstDayOfMonthIndex].capital : 0;
-            }, [data, activeMonthIndex]);
-            
-            if (!data) {
-                return <div className="min-h-screen flex items-center justify-center text-cyan-400"><p>LOADING NEURAL INTERFACE...</p></div>
-            }
-            
-            const currentMonthData = data.months[activeMonthIndex];
-            
-            return (
-                <div className="relative min-h-screen text-gray-800 dark:text-gray-200 flex flex-col items-center p-4 sm:p-6 scanlines transition-colors duration-500">
-                    <DynamicBackground theme={theme} />
-
-                     <button onClick={toggleTheme} className="absolute top-4 right-4 sm:top-6 sm:right-6 px-4 py-2 rounded-lg bg-white/50 dark:bg-black/70 backdrop-blur-sm text-gray-800 dark:text-gray-200 hover:bg-white/80 dark:hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-cyan-400 z-10">
-                        {theme === "dark" ? "Light" : "Dark"}
-                    </button>
-                    
-                    <header className="text-center w-full max-w-7xl z-10">
-                        <h1 className="text-2xl sm:text-4xl font-black mb-2 text-cyan-600 dark:text-cyan-400" style={{textShadow: '0 0 10px #00ffff'}}>
-                            DevTrader Trading Journal
-                        </h1>
-                        <p className="font-bold tracking-wider text-gray-500 dark:text-gray-300 mb-2 drop-shadow">
-                            OBJECTIVE: ₹{formatNumber(data.initialCapital, false)} → ₹{formatNumber(data.finalTarget, false)} in {data.tenure} days
-                        </p>
-                    </header>
-                    
-                    <div className="w-full max-w-5xl my-4 p-4 z-10 bg-white/50 dark:bg-black/70 backdrop-blur-sm border border-cyan-700/30 dark:border-cyan-500/50 shadow-[0_0_15px_rgba(0,255,255,0.3)]">
-                        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-                            <div className="flex flex-col items-center">
-                                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">START CAPITAL</label>
-                                 <div className="flex items-center bg-white/50 dark:bg-black/50 border border-cyan-700/30 dark:border-cyan-500/50 focus-within:ring-2 focus-within:ring-cyan-400">
-                                    <span className="px-2 text-gray-500">₹</span>
-                                    <input type="number" value={inputCapital} onChange={e => setInputCapital(e.target.value)} className="bg-transparent text-center p-2 w-40 focus:outline-none" />
+            // --- Render View: TERMINAL ---
+            const renderTerminal = () => (
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full p-4">
+                    {/* Left: Charts */}
+                    <div className="lg:col-span-3 flex flex-col gap-4 h-full">
+                        <div className="glass-panel p-4 rounded-xl flex-1 min-h-[500px] flex flex-col">
+                             <div className="flex justify-between items-center mb-2">
+                                <div className="flex gap-2">
+                                    <input value={symbol} onChange={e=>setSymbol(e.target.value.toUpperCase())} className="bg-gray-800 border border-gray-600 px-2 py-1 rounded text-white font-bold w-24" />
+                                    <span className="text-gray-500 flex items-center text-xs">TYPE SYMBOL & ENTER</span>
                                 </div>
-                            </div>
-                            <div className="flex flex-col items-center">
-                                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">OVERALL TARGET</label>
-                                <div className="flex items-center bg-white/50 dark:bg-black/50 border border-cyan-700/30 dark:border-cyan-500/50 focus-within:ring-2 focus-within:ring-cyan-400">
-                                    <span className="px-2 text-gray-500">₹</span>
-                                    <input type="number" value={inputTarget} onChange={e => setInputTarget(e.target.value)} className="bg-transparent text-center p-2 w-40 focus:outline-none" />
-                                </div>
-                            </div>
-                             <div className="flex flex-col items-center">
-                                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">TENURE (DAYS)</label>
-                                <input type="number" value={inputTenure} onChange={e => setInputTenure(e.target.value)} className="bg-white/50 dark:bg-black/50 border border-cyan-700/30 dark:border-cyan-500/50 text-center p-2 w-48 focus:outline-none focus:ring-2 focus:ring-cyan-400" />
-                            </div>
-                             <button onClick={handleUpdateTargets} className="bg-cyan-600/80 hover:bg-cyan-500/80 border border-cyan-400 backdrop-blur-sm text-white px-6 py-2 mt-2 sm:mt-5 font-bold shadow-[0_0_10px_rgba(0,255,255,0.5)] transition-all">SET & RECALCULATE</button>
+                                <div className="text-cyan-400 font-orbitron">LIVE MARKET FEED // SIMULATION MODE</div>
+                             </div>
+                             <div className="flex-1 bg-black rounded border border-gray-800 relative">
+                                 <TradingViewChart symbol={symbol} />
+                             </div>
+                        </div>
+
+                        {/* Bottom: Recent History */}
+                        <div className="glass-panel p-4 rounded-xl h-64 overflow-y-auto">
+                            <h3 className="font-bold text-gray-400 mb-2 sticky top-0 bg-gray-900/90 backdrop-blur p-1 z-10">RECENT CLOSED TRADES</h3>
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-gray-500 uppercase bg-gray-800">
+                                    <tr>
+                                        <th className="px-4 py-2">Time</th>
+                                        <th className="px-4 py-2">Symbol</th>
+                                        <th className="px-4 py-2">Type</th>
+                                        <th className="px-4 py-2">P&L</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {trades.length === 0 ? <tr><td colSpan="4" className="p-4 text-center text-gray-600">No history available</td></tr> : 
+                                    trades.map(t => (
+                                        <tr key={t.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                                            <td className="px-4 py-2 text-gray-400">{new Date(t.exitTime).toLocaleTimeString()}</td>
+                                            <td className="px-4 py-2 font-bold">{t.symbol}</td>
+                                            <td className={`px-4 py-2 ${t.type === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>{t.type}</td>
+                                            <td className={`px-4 py-2 font-mono font-bold ${t.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                {t.pnl > 0 ? '+' : ''}{formatCurrency(t.pnl)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    
-                    <div className="w-full max-w-7xl mb-4 bg-white/50 dark:bg-black/70 backdrop-blur-sm rounded-t-lg z-10 border-t border-x border-cyan-700/30 dark:border-cyan-500/50 shadow-[0_0_15px_rgba(0,255,255,0.3)]">
-                        <div className="flex overflow-x-auto">
-                            {data.months.map((month, index) => (
-                                <button
-                                    key={month.id} onClick={() => setActiveMonthIndex(index)}
-                                    className={`px-4 py-2 text-xs sm:text-sm font-bold transition-all whitespace-nowrap border-b-2 ${activeMonthIndex === index ? 'border-cyan-500 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400' : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-900/20'}`}
-                                >
-                                    &gt; {month.monthName || `Month ${month.id}`}
+
+                    {/* Right: Order Panel */}
+                    <div className="lg:col-span-1 flex flex-col gap-4">
+                        {/* Account Summary */}
+                        <div className="glass-panel p-6 rounded-xl text-center neon-border">
+                            <h2 className="text-gray-400 text-sm tracking-widest mb-1">NET LIQUIDITY</h2>
+                            <div className="text-3xl font-black text-white font-orbitron">{formatCurrency(capital)}</div>
+                            <div className={`text-sm font-bold mt-1 ${capital >= DEFAULT_INITIAL_CAPITAL ? 'text-green-400' : 'text-red-400'}`}>
+                                {((capital - DEFAULT_INITIAL_CAPITAL) / DEFAULT_INITIAL_CAPITAL * 100).toFixed(2)}% Total Return
+                            </div>
+                        </div>
+
+                        {/* Order Entry */}
+                        <div className="glass-panel p-6 rounded-xl">
+                            <h3 className="font-bold text-cyan-400 mb-4 border-b border-cyan-900 pb-2">EXECUTION DECK</h3>
+                            
+                            <div className="flex bg-gray-800 rounded mb-4 p-1">
+                                <button onClick={()=>setOrderType("BUY")} className={`flex-1 py-2 rounded font-bold transition-colors ${orderType==='BUY' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-white'}`}>LONG</button>
+                                <button onClick={()=>setOrderType("SELL")} className={`flex-1 py-2 rounded font-bold transition-colors ${orderType==='SELL' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'}`}>SHORT</button>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs text-gray-500">ENTRY PRICE (MANUAL SIM)</label>
+                                    <input type="number" value={entryPrice} onChange={e=>setEntryPrice(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-cyan-500 outline-none" placeholder="Current Chart Price" />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500">QUANTITY / LOTS</label>
+                                    <input type="number" value={quantity} onChange={e=>setQuantity(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-cyan-500 outline-none" />
+                                </div>
+                                <button onClick={executeTrade} className={`w-full py-3 rounded font-black text-lg shadow-lg transform active:scale-95 transition-all ${orderType==='BUY' ? 'bg-green-600 hover:bg-green-500 shadow-green-900/50' : 'bg-red-600 hover:bg-red-500 shadow-red-900/50'}`}>
+                                    EXECUTE {orderType}
                                 </button>
-                            ))}
-                        </div>
-                    </div>
-                    
-                    <div className="w-full max-w-7xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4 text-center z-10">
-                        {['MONTH P&L', 'PROFIT DAYS', 'LOSS DAYS', 'WINNING TRADES', 'LOSING TRADES', 'MONTH START'].map((title, i) => (
-                            <div key={title} className="bg-white/50 dark:bg-black/70 backdrop-blur-sm p-4 border border-fuchsia-700/30 dark:border-fuchsia-500/50 shadow-[0_0_15px_rgba(255,0,255,0.3)]">
-                                <h4 className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400">{title}</h4>
-                                <p className={`text-lg sm:text-xl font-bold ${i === 0 ? (analysis.pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : i === 1 || i === 3 ? 'text-green-600 dark:text-green-400' : i === 2 || i === 4 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-200'}`}>
-                                    {i === 0 ? `₹${formatNumber(analysis.pnl, false)}` : i === 1 ? analysis.profitDays : i === 2 ? analysis.lossDays : i === 3 ? analysis.winningTrades : i === 4 ? analysis.losingTrades : '₹' + formatNumber(Math.round(startCapitalForMonth), false) }
-                                </p>
                             </div>
-                        ))}
-                    </div>
+                        </div>
 
-                    <div className="w-full max-w-7xl perspective-container z-10">
-                        <div className="space-y-6">
-                            {currentMonthData && currentMonthData.days.map((row, i) => {
-                                const isToday = row.date === todayString;
-                                const pnlValue = Number(row.actual) || 0;
-                                const isProfit = row.pnlSign === '+' && pnlValue > 0;
-                                const isLoss = row.pnlSign === '-' && pnlValue > 0;
-                                
-                                return (
-                                <div 
-                                    key={row.date} 
-                                    className={`day-container p-4 border transition-all duration-300 transform-style-3d hover:scale-[1.02] ${
-                                        isProfit ? 'hover:!bg-green-400/20 dark:hover:!bg-green-900/50' : isLoss ? 'hover:!bg-red-400/20 dark:hover:!bg-red-900/50' : 'hover:!bg-gray-400/20 dark:hover:!bg-gray-800/40'
-                                    } ${
-                                        isToday ? 'today-highlight border-yellow-500/80' : 'border-cyan-700/20 dark:border-cyan-500/30'} ${
-                                        isProfit ? "bg-green-200/30 dark:bg-green-800/30 backdrop-blur-md" : isLoss ? "bg-red-200/30 dark:bg-red-800/30 backdrop-blur-md" : "bg-white/50 dark:bg-black/70 backdrop-blur-md" }`}
-                                    onMouseDown={handleMouseDown}
-                                >
-                                    {/* --- Top Data Row --- */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-4 items-center text-center">
-                                        <div className="flex flex-col"><span className="text-xs text-gray-500 dark:text-gray-400">DAY</span><span className="font-black text-lg">{row.day}</span></div>
-                                        <div className="flex flex-col"><span className="text-xs text-gray-500 dark:text-gray-400">DATE</span><span className="font-bold text-sm">{new Date(row.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span></div>
-                                        <div className="flex flex-col"><span className="text-xs text-gray-500 dark:text-gray-400">CAPITAL</span><span className="font-mono font-bold">₹{formatNumber(row.capital, false)}</span></div>
-                                        <div className="flex flex-col"><span className="text-xs text-gray-500 dark:text-gray-400">TARGET %</span><span className={`font-mono font-bold ${row.dailyRate > 0 ? 'text-cyan-700 dark:text-cyan-400' : 'text-gray-500'}`}>{(row.dailyRate * 100).toFixed(2)}%</span></div>
-                                        <div className="flex flex-col"><span className="text-xs text-gray-500 dark:text-gray-400">PROFIT GOAL</span><span className="font-mono text-yellow-600 dark:text-yellow-400 font-bold">₹{formatNumber(row.profit, false)}</span></div>
-                                        <div className="flex flex-col"><span className="text-xs text-gray-500 dark:text-gray-400">TARGET AMT</span><span className="font-mono font-bold">₹{formatNumber(row.target, false)}</span></div>
-                                        <div className="flex flex-col items-center"><span className="text-xs text-gray-500 dark:text-gray-400 mb-1">WIN</span><input type="number" placeholder="W" value={row.winningTrades} onChange={(e) => handleDetailsChange(activeMonthIndex, i, 'winningTrades', e.target.value)} className="bg-white/50 dark:bg-black/50 border border-cyan-700/30 dark:border-cyan-500/50 text-center p-1.5 w-16 focus:outline-none focus:ring-2 focus:ring-cyan-400"/></div>
-                                        <div className="flex flex-col items-center"><span className="text-xs text-gray-500 dark:text-gray-400 mb-1">LOSS</span><input type="number" placeholder="L" value={row.losingTrades} onChange={(e) => handleDetailsChange(activeMonthIndex, i, 'losingTrades', e.target.value)} className="bg-white/50 dark:bg-black/50 border border-cyan-700/30 dark:border-cyan-500/50 text-center p-1.5 w-16 focus:outline-none focus:ring-2 focus:ring-cyan-400"/></div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">YOUR P&L</span>
-                                            <div className="flex items-center">
-                                                <button onClick={() => handleSignChange(activeMonthIndex, i, '+')} className={`px-2 py-1 border ${row.pnlSign === '+' ? 'bg-green-500 text-white border-green-500' : 'bg-transparent border-gray-500'}`}>+</button>
-                                                <input type="number" placeholder="₹" value={row.actual} onChange={(e) => handleProfitInput(activeMonthIndex, i, e.target.value)} className="bg-white/50 dark:bg-black/50 border-y border-cyan-700/30 dark:border-cyan-500/50 text-center p-1.5 w-28 focus:outline-none focus:ring-2 focus:ring-cyan-400" />
-                                                <button onClick={() => handleSignChange(activeMonthIndex, i, '-')} className={`px-2 py-1 border ${row.pnlSign === '-' ? 'bg-red-500 text-white border-red-500' : 'bg-transparent border-gray-500'}`}>-</button>
+                        {/* Open Positions */}
+                        <div className="glass-panel p-4 rounded-xl flex-1 overflow-y-auto">
+                            <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Open Positions ({openPositions.length})</h3>
+                            <div className="space-y-3">
+                                {openPositions.map(p => (
+                                    <div key={p.id} className="bg-gray-800/50 p-3 rounded border-l-2 border-cyan-500 relative group">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <div className="font-bold">{p.symbol}</div>
+                                                <div className={`text-xs font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>{p.type} x{p.quantity}</div>
                                             </div>
+                                            <div className="text-xs text-gray-500">@ {p.entryPrice}</div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <input type="number" id={`exit-${p.id}`} className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-xs" placeholder="Exit Price" />
+                                            <button onClick={() => closePosition(p.id, document.getElementById(`exit-${p.id}`).value)} className="bg-yellow-600 hover:bg-yellow-500 text-white text-xs px-3 py-1 rounded font-bold">CLOSE</button>
                                         </div>
                                     </div>
-                                    {/* --- Journal Section --- */}
-                                    <div className="mt-4 pt-4 border-t border-cyan-700/20 dark:border-cyan-500/30">
-                                         <div className="flex flex-col md:flex-row gap-6">
-                                            <div className="flex-1 md:w-1/2">
-                                                <h3 className="font-bold mb-2 text-left text-fuchsia-600 dark:text-fuchsia-400">DAILY PROTOCOLS</h3>
-                                                <div className="space-y-2 text-left">
-                                                    {row.rules.map((rule, ruleIndex) => (
-                                                        <label key={ruleIndex} className="flex items-center text-xs sm:text-sm cursor-pointer group">
-                                                            <input type="checkbox" checked={rule.checked} onChange={(e) => handleRuleChange(activeMonthIndex, i, ruleIndex, e.target.checked)} className="h-4 w-4 rounded-none border-2 border-fuchsia-700/50 dark:border-fuchsia-500/50 text-fuchsia-500 focus:ring-fuchsia-500 bg-transparent" />
-                                                            <span className="ml-3 text-gray-700 dark:text-gray-300 group-hover:text-fuchsia-600 dark:group-hover:text-fuchsia-400 transition-colors">{rule.text}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="flex-1 md:w-1/2">
-                                                <h3 className="font-bold mb-2 text-left text-fuchsia-600 dark:text-fuchsia-400">EXECUTION LOG</h3>
-                                                <textarea value={row.logic} onChange={(e) => handleDetailsChange(activeMonthIndex, i, 'logic', e.target.value)} placeholder={`// LOG FOR DAY ${row.day}...`} className="w-full h-48 p-2 bg-white/30 dark:bg-black/50 border border-fuchsia-700/30 dark:border-fuchsia-500/50 text-green-700 dark:text-green-400 rounded-none focus:outline-none focus:ring-2 focus:ring-fuchsia-500"></textarea>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                )
-                            })}
+                                ))}
+                                {openPositions.length === 0 && <div className="text-center text-gray-600 text-sm py-4">No Active Positions</div>}
+                            </div>
                         </div>
                     </div>
-                    
-                    <div className="w-full max-w-7xl mt-6 flex flex-wrap justify-center gap-4 z-10">
-                        <button onClick={handleResetChallenge} className="bg-red-600/80 hover:bg-red-500/80 border border-red-400 backdrop-blur-sm text-white px-6 py-2 font-bold shadow-[0_0_10px_rgba(239,68,68,0.5)] transition-all">PURGE & RESET CHALLENGE</button>
+                </div>
+            );
+
+            // --- Render View: JOURNAL (Simplified Version of Original) ---
+            const renderJournal = () => (
+                <div className="p-6 max-w-7xl mx-auto">
+                    <div className="glass-panel p-8 rounded-xl text-center">
+                        <h2 className="text-2xl font-bold text-cyan-400 mb-4">DAILY JOURNAL LOGS</h2>
+                        <p className="text-gray-400 mb-8">Track your psychological state and daily aggregate P&L here. (Original journal features are preserved in local storage).</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                             <div className="bg-gray-800 p-4 rounded">
+                                <div className="text-gray-500 text-xs">TRADES TAKEN TODAY</div>
+                                <div className="text-2xl font-bold">{trades.filter(t => t.exitTime.startsWith(getToday())).length}</div>
+                             </div>
+                             <div className="bg-gray-800 p-4 rounded">
+                                <div className="text-gray-500 text-xs">TODAY'S REALIZED P&L</div>
+                                <div className={`text-2xl font-bold ${trades.filter(t => t.exitTime.startsWith(getToday())).reduce((a,b)=>a+b.pnl,0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                    {formatCurrency(trades.filter(t => t.exitTime.startsWith(getToday())).reduce((a,b)=>a+b.pnl,0))}
+                                </div>
+                             </div>
+                             <div className="bg-gray-800 p-4 rounded flex items-center justify-center">
+                                 <a href="#" onClick={()=>setActiveView('terminal')} className="text-cyan-400 hover:underline">Return to Terminal &rarr;</a>
+                             </div>
+                        </div>
                     </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen relative">
+                    <DynamicBackground />
+                    
+                    {/* Nav Bar */}
+                    <nav className="sticky top-0 z-40 bg-gray-900/80 backdrop-blur border-b border-gray-800 px-6 py-3 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded flex items-center justify-center font-bold text-black font-orbitron">DT</div>
+                            <h1 className="font-orbitron font-bold text-xl tracking-wider text-gray-100"><span className="text-cyan-400">DEV</span>TRADER</h1>
+                        </div>
+                        <div className="flex bg-gray-800 rounded p-1">
+                            <button onClick={() => setActiveView('terminal')} className={`px-4 py-1 rounded text-sm font-bold transition-colors ${activeView === 'terminal' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-white'}`}>TERMINAL</button>
+                            <button onClick={() => setActiveView('journal')} className={`px-4 py-1 rounded text-sm font-bold transition-colors ${activeView === 'journal' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-white'}`}>JOURNAL</button>
+                        </div>
+                        <button onClick={resetData} className="text-xs text-red-900 hover:text-red-500 uppercase font-bold border border-red-900 px-2 py-1 rounded">Reset Data</button>
+                    </nav>
+
+                    {/* Content Area */}
+                    <main className="pt-4 h-[calc(100vh-60px)]">
+                        {activeView === 'terminal' ? renderTerminal() : renderJournal()}
+                    </main>
+
+                    {/* AI Sidebar */}
+                    <AIAssistant 
+                        trades={trades} 
+                        capital={capital} 
+                        apiKey={geminiKey}
+                        setApiKey={setGeminiKey}
+                    />
                 </div>
             );
         }
 
-        const container = document.getElementById('root');
-        const root = ReactDOM.createRoot(container);
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
 </html>
-
